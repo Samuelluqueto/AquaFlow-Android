@@ -17,78 +17,39 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Verificar arquivos do repositório
-        run: |
-          echo "=== ESTRUTURA DO REPOSITÓRIO ==="
-          find . -maxdepth 5 -type f | sort
-
-      - name: Localizar projeto Gradle
-        run: |
-          echo "Procurando settings.gradle..."
-
-          PROJECT_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
-
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "ERRO: settings.gradle não encontrado!"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$PROJECT_FILE")
-          PROJECT_DIR="${PROJECT_DIR#./}"
-
-          echo "Projeto encontrado em: $PROJECT_DIR"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
-      - name: Mostrar projeto encontrado
-        run: |
-          echo "Pasta do projeto: $PROJECT_DIR"
-          echo ""
-          echo "Arquivos:"
-          find "$PROJECT_DIR" -maxdepth 3 -type f | sort
-
-      - name: Instalar Gradle
+      - name: Instalar Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
+      - name: Descompactar projeto
+        run: |
+          mkdir projeto
+          unzip AquaFlow_V1_VSCode_LiveServer.zip -d projeto
+
+      - name: Entrar na pasta do projeto
+        run: |
+          echo "Conteúdo:"
+          find projeto -maxdepth 3 -type f | sort
+
       - name: Sincronizar arquivos Web
         run: |
-          if [ -f "$PROJECT_DIR/scripts/sync-web.sh" ]; then
-            chmod +x "$PROJECT_DIR/scripts/sync-web.sh"
-            "$PROJECT_DIR/scripts/sync-web.sh"
-          else
-            echo "Script sync-web.sh não encontrado."
-            echo "Continuando..."
-          fi
+          cd projeto/AquaFlow_V1
+          chmod +x scripts/sync-web.sh
+          ./scripts/sync-web.sh
 
       - name: Gerar APK
         run: |
-          cd "$PROJECT_DIR"
+          cd projeto/AquaFlow_V1
           gradle assembleDebug --stacktrace
 
-      - name: Localizar APK
+      - name: Verificar APK
         run: |
-          echo "=== PROCURANDO APK ==="
-
-          find "$PROJECT_DIR" -name "*.apk" -type f -print
-
-          mkdir -p apk-final
-
-          APK=$(find "$PROJECT_DIR" -name "app-debug.apk" -type f | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERRO: APK não encontrado!"
-            exit 1
-          fi
-
-          echo "APK encontrado:"
-          echo "$APK"
-
-          cp "$APK" apk-final/AquaFlow.apk
+          find projeto -name "*.apk" -type f -print
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: AquaFlow-APK
-          path: apk-final/AquaFlow.apk
+          path: projeto/AquaFlow_V1/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
